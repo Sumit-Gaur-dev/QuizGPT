@@ -1,0 +1,31 @@
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment variables & secrets
+.env
+.streamlit/secrets.toml
+.env.e
+
+# ChromaDB local storage & runtime data
+storage/chroma_db/
+*.chroma
+
+# User uploaded files / temp data
+*.pdf
+temp_uploads/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,18 @@
+# Core UI and App Runtime
+streamlit>=1.35.0
+
+# Gemini API SDK
+google-genai>=0.1.0
+
+# Vector Database
+chromadb>=0.5.0
+
+# PDF Extraction
+pymupdf>=1.24.0
+
+# Environment Configuration
+python-dotenv>=1.0.0
+
+# Data Validation & Schemas
+pydantic>=2.0.0
+
