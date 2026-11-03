@@ -1,29 +1,61 @@
 """
 Quiz generation view for Quiz RAG.
-Configures quiz settings and generates mock questions (Phase 1 mock).
+Configures quiz settings and generates strictly grounded questions using
+LangChain and Gemini (or verified offline mock mode during development).
 """
 
 import streamlit as st
-from config.session import get_mock_questions
+from config.settings import has_valid_gemini_key, GEMINI_MODEL
+from rag.generation import generate_quiz
+from rag.vector_store import get_collection_stats
 
 
 def render_generate_quiz() -> None:
-    """Render the quiz generation configuration controls."""
+    """Render the quiz generation configuration controls and handle generation."""
     st.header("⚙️ Generate a Study Quiz")
     st.markdown(
-        "Customize your quiz parameters. In Phase 1, clicking **Generate Quiz** builds "
-        "a mock quiz using your chosen settings and places it in the session state ready for an attempt."
+        "Generate a structured quiz strictly grounded in your uploaded study notes. "
+        "Questions cite their exact source PDF and page number."
     )
 
     st.divider()
 
-    # Check if notes are present
-    num_files = len(st.session_state.get("uploaded_files", []))
-    if num_files == 0:
-        st.warning("⚠️ No documents uploaded yet. You can still generate a sample quiz using mock notes!")
-    else:
-        st.success(f"📚 Grounding context: {num_files} document(s) available in your session.")
+    # 1. Pipeline & API Status Indicator
+    key_configured = has_valid_gemini_key()
+    col_status, col_docs = st.columns(2)
 
+    with col_status:
+        with st.container(border=True):
+            if key_configured:
+                st.markdown(f"🤖 **Gemini Status:** `Connected ({GEMINI_MODEL})`")
+                mock_default = st.session_state.get("force_mock_mode", False)
+                force_mock = st.checkbox(
+                    "🔒 Force Offline Mock Mode (Zero Gemini API calls)",
+                    value=mock_default,
+                    help="Enable to test quiz generation locally without consuming Gemini API quota."
+                )
+                st.session_state.force_mock_mode = force_mock
+            else:
+                st.markdown("🔒 **Gemini Status:** `Offline Mock Mode (Zero API calls)`")
+                st.caption(
+                    "No valid Gemini API key found in `.env`. Running safely in local mock mode. "
+                    "Questions are strictly grounded in your note chunks with zero external API calls."
+                )
+                st.session_state.force_mock_mode = True
+
+    with col_docs:
+        with st.container(border=True):
+            stats = get_collection_stats(st.session_state.session_id)
+            total_chunks = stats["total_chunks"]
+            st.markdown(f"📚 **Context Base:** `{total_chunks} ChromaDB chunks`")
+            if total_chunks == 0:
+                st.caption("⚠️ No documents indexed yet. A sample study notes context will be used for mock generation.")
+            else:
+                st.caption(f"Embedding Provider: `{stats['display_name']}`")
+
+    st.write("")
+
+    # 2. Configuration Form
     with st.form("quiz_generation_form"):
         col1, col2 = st.columns(2)
 
@@ -38,7 +70,7 @@ def render_generate_quiz() -> None:
                 label="Difficulty Level",
                 options=["Easy", "Medium", "Hard"],
                 index=1,
-                help="Adjusts the complexity and depth of generated questions."
+                help="Adjusts the depth and complexity of questions."
             )
 
         with col2:
@@ -62,40 +94,46 @@ def render_generate_quiz() -> None:
             use_container_width=True
         )
 
+    # 3. Handle Form Submission
     if submit_btn:
         if not question_types:
-            st.error("Please select at least one question type.")
+            st.error("Please select at least one question type (MCQ, True/False, or Short Answer).")
             return
 
-        # Generate mock questions matching user selections
-        quiz_title = f"{topic} Quiz" if topic.strip() else "Study Notes Comprehensive Quiz"
-        mock_qs = get_mock_questions(
-            count=num_questions,
-            difficulty=difficulty,
-            question_types=question_types
-        )
+        with st.spinner("Retrieving relevant context from ChromaDB and generating questions..."):
+            try:
+                quiz = generate_quiz(
+                    session_id=st.session_state.session_id,
+                    topic=topic,
+                    difficulty=difficulty,
+                    question_types=question_types,
+                    num_questions=num_questions,
+                    force_mock=st.session_state.get("force_mock_mode", True)
+                )
 
-        st.session_state.current_quiz = {
-            "title": quiz_title,
-            "topic": topic if topic.strip() else "All Uploaded Notes",
-            "difficulty": difficulty,
-            "total_questions": len(mock_qs),
-            "questions": mock_qs
-        }
+                # Store active quiz in session state
+                st.session_state.current_quiz = quiz
+                st.session_state.user_answers = {}
+                st.session_state.quiz_submitted = False
+                st.session_state.active_question_idx = 0
+                st.session_state.latest_evaluation = None
+                st.session_state.show_submit_confirm = False
+                st.session_state.generated_quizzes_count += 1
 
-        # Reset active attempt states
-        st.session_state.user_answers = {}
-        st.session_state.quiz_submitted = False
-        st.session_state.generated_quizzes_count += 1
+                mode_label = "Offline Mock Mode (Zero API calls)" if st.session_state.get("force_mock_mode") else f"Gemini ({GEMINI_MODEL})"
+                st.success(
+                    f"🎉 Quiz **'{quiz['title']}'** generated successfully with {len(quiz['questions'])} questions!\n\n"
+                    f"- **Difficulty:** {difficulty}\n"
+                    f"- **Mode:** {mode_label}"
+                )
 
-        st.success(
-            f"🎉 Quiz '{quiz_title}' generated successfully with {len(mock_qs)} questions! "
-            f"Difficulty: **{difficulty}**"
-        )
+            except Exception as e:
+                st.error(f"❌ Quiz generation failed: {e}")
+                return
 
         col_a, col_b = st.columns([2, 1])
         with col_a:
-            st.info("You can now navigate to **✍️ Attempt Quiz** or click the button on the right.")
+            st.info("Your quiz is ready! Click **Start Quiz Now** to begin the interactive assessment.")
         with col_b:
             if st.button("Start Quiz Now ➔", type="primary", use_container_width=True):
                 st.session_state.current_page = "✍️ Attempt Quiz"
@@ -104,11 +142,11 @@ def render_generate_quiz() -> None:
     st.markdown("---")
 
     # Informational notice
-    with st.expander("ℹ️ Phase 1 Note: Mock Generation Details", expanded=False):
+    with st.expander("ℹ️ Grounded Quiz Generation Architecture", expanded=False):
         st.markdown(
             """
-            - **Current Phase (Phase 1):** Questions are created from an internal mock question bank matching your chosen formats and count.
-            - **Upcoming Phase (Phase 5):** Gemini 2.5 Flash will be queried using the top-K retrieved vector chunks to produce structured, strictly grounded questions.
+            - **Strict Grounding:** Every question is retrieved from your study notes in ChromaDB with source filename and page numbers preserved.
+            - **Zero Hallucination:** Prompts instruct the model to rely solely on retrieved context.
+            - **Offline Mock Support:** If `GOOGLE_API_KEY` is not present, the system runs locally with zero external network requests while maintaining the exact same Pydantic data schemas.
             """
         )
-

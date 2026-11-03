@@ -45,19 +45,27 @@ def render_dashboard() -> None:
 
     # Quick action banner
     st.subheader("🚀 Quick Actions")
-    action_col1, action_col2 = st.columns(2)
+    action_col1, action_col2, action_col3 = st.columns(3)
 
     with action_col1:
         with st.container(border=True):
-            st.markdown("### 📁 1. Upload Study Notes")
-            st.write("Upload PDF notes from lectures, textbooks, or course handouts.")
+            st.markdown("### 📁 1. Upload Notes")
+            st.write("Upload notes, parse pages, and store embeddings in ChromaDB.")
             if st.button("Go to Uploads ➔", use_container_width=True):
                 st.session_state.current_page = "📁 Upload Notes"
                 st.rerun()
 
     with action_col2:
         with st.container(border=True):
-            st.markdown("### ⚙️ 2. Generate a Quiz")
+            st.markdown("### 🔍 2. Semantic Search")
+            st.write("Search indexed notes with natural language and inspect distances.")
+            if st.button("Go to Search ➔", use_container_width=True):
+                st.session_state.current_page = "🔍 Semantic Search"
+                st.rerun()
+
+    with action_col3:
+        with st.container(border=True):
+            st.markdown("### ⚙️ 3. Generate a Quiz")
             st.write("Configure quiz difficulty, question formats, and target topics.")
             if st.button("Go to Generator ➔", use_container_width=True):
                 st.session_state.current_page = "⚙️ Generate Quiz"
@@ -74,10 +82,10 @@ def render_dashboard() -> None:
         st.info("**Step 2: LangChain Chunking**\n\nText is modeled into Documents and split using `RecursiveCharacterTextSplitter`.")
 
     with step2:
-        st.info("**Step 3: Embeddings**\n\nGemini `text-embedding-004` turns chunks into vectors.")
-        st.info("**Step 4: Vector Storage**\n\nVectors and chunk metadata are saved in session ChromaDB.")
+        st.info("**Step 3: Embeddings**\n\nModular embeddings (Sentence Transformers / MiniLM) turn chunks into dense vectors.")
+        st.info("**Step 4: Vector Storage**\n\nVectors and chunk metadata are saved in session-isolated ChromaDB.")
 
     with step3:
-        st.info("**Step 5: Grounded Retrieval**\n\nTop-K relevant chunks are matched to your study query.")
-        st.info("**Step 6: Evaluation**\n\nObjective questions scored in Python; short answers scored by AI.")
+        st.info("**Step 5: Grounded Retrieval**\n\nTop-K relevant chunks are retrieved with similarity scoring and citations.")
+        st.info("**Step 6: Generation & Evaluation**\n\nGrounded quiz questions via Gemini (or offline mock), with deterministic & rubric grading.")
 

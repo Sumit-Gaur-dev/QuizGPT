@@ -135,6 +135,18 @@ def init_session_state() -> None:
     if "quiz_history" not in st.session_state:
         st.session_state.quiz_history = []
 
+    if "active_question_idx" not in st.session_state:
+        st.session_state.active_question_idx = 0
+
+    if "latest_evaluation" not in st.session_state:
+        st.session_state.latest_evaluation = None
+
+    if "force_mock_mode" not in st.session_state:
+        st.session_state.force_mock_mode = True
+
+    if "show_submit_confirm" not in st.session_state:
+        st.session_state.show_submit_confirm = False
+
 
 def reset_session_data() -> None:
     """Clear all session data and delete ChromaDB vector store for this session."""
@@ -152,6 +164,9 @@ def reset_session_data() -> None:
     st.session_state.current_quiz = None
     st.session_state.user_answers = {}
     st.session_state.quiz_submitted = False
+    st.session_state.active_question_idx = 0
+    st.session_state.latest_evaluation = None
+    st.session_state.show_submit_confirm = False
     st.session_state.generated_quizzes_count = 0
     st.session_state.quiz_history = []
     st.session_state.session_id = f"session_{uuid.uuid4().hex[:8]}"

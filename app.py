@@ -9,9 +9,11 @@ from rag.embeddings.factory import get_active_provider_info
 from rag.vector_store import get_collection_stats
 from frontend.dashboard import render_dashboard
 from frontend.upload import render_upload
+from frontend.search import render_search
 from frontend.generate_quiz import render_generate_quiz
 from frontend.quiz_attempt import render_quiz_attempt
-from frontend.quiz_results import render_quiz_history
+from frontend.quiz_history import render_quiz_history
+from config.settings import has_valid_gemini_key, GEMINI_MODEL
 
 # 1. Page Configuration
 st.set_page_config(
@@ -28,6 +30,7 @@ init_session_state()
 PAGES = [
     "📊 Dashboard",
     "📁 Upload Notes",
+    "🔍 Semantic Search",
     "⚙️ Generate Quiz",
     "✍️ Attempt Quiz",
     "📜 Quiz History"
@@ -44,7 +47,7 @@ def on_nav_change():
 # 3. Sidebar UI
 with st.sidebar:
     st.title("📚 Quiz RAG")
-    st.caption("AI-Powered Study Quiz Assistant • Phase 4 (ChromaDB)")
+    st.caption("AI-Powered Study Quiz Assistant • Phase 6 (Gemini RAG)")
 
     st.divider()
 
@@ -83,6 +86,9 @@ with st.sidebar:
     has_quiz = "Yes" if st.session_state.current_quiz else "None"
     st.caption(f"Active Quiz: **{has_quiz}**")
 
+    llm_mode = f"Gemini ({GEMINI_MODEL})" if has_valid_gemini_key() else "Offline Mock (Free)"
+    st.caption(f"LLM Engine: **{llm_mode}**")
+
     st.divider()
 
     # Data Lifecycle: Delete My Data
@@ -98,6 +104,8 @@ if st.session_state.current_page == "📊 Dashboard":
     render_dashboard()
 elif st.session_state.current_page == "📁 Upload Notes":
     render_upload()
+elif st.session_state.current_page == "🔍 Semantic Search":
+    render_search()
 elif st.session_state.current_page == "⚙️ Generate Quiz":
     render_generate_quiz()
 elif st.session_state.current_page == "✍️ Attempt Quiz":
