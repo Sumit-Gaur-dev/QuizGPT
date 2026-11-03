@@ -17,19 +17,28 @@ def render_dashboard() -> None:
     st.divider()
 
     # Metric summary row
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     num_pdfs = len(st.session_state.get("uploaded_files", []))
     num_quizzes = st.session_state.get("generated_quizzes_count", 0)
     completed_quizzes = len(st.session_state.get("quiz_history", []))
 
+    extracted_docs = st.session_state.get("extracted_docs", {})
+    successful_docs = [d for d in extracted_docs.values() if d.get("success")]
+    total_pages = sum(d.get("extracted_pages_count", 0) for d in successful_docs)
+    total_chunks = len(st.session_state.get("chunks", []))
+
     with col1:
-        st.metric(label="📄 Uploaded PDFs", value=num_pdfs, delta="Ready for indexing" if num_pdfs > 0 else "None")
+        delta_label = f"{total_pages} pages extracted" if total_pages > 0 else ("Ready for upload" if num_pdfs == 0 else "Pending extraction")
+        st.metric(label="📄 Uploaded PDFs", value=num_pdfs, delta=delta_label)
 
     with col2:
-        st.metric(label="⚙️ Generated Quizzes", value=num_quizzes)
+        st.metric(label="🧩 LangChain Chunks", value=total_chunks, delta="Ready for ChromaDB" if total_chunks > 0 else "None")
 
     with col3:
+        st.metric(label="⚙️ Generated Quizzes", value=num_quizzes)
+
+    with col4:
         st.metric(label="🏆 Completed in History", value=completed_quizzes)
 
     st.divider()
@@ -57,12 +66,12 @@ def render_dashboard() -> None:
     st.markdown("---")
 
     # Visible RAG Pipeline Walkthrough
-    st.subheader("🔍 The 6-Step RAG Journey (Phase 1 UI View)")
+    st.subheader("🔍 The 6-Step RAG Journey")
     step1, step2, step3 = st.columns(3)
 
     with step1:
         st.info("**Step 1: Ingestion**\n\nPDF text is parsed page-by-page using PyMuPDF (`fitz`).")
-        st.info("**Step 2: Chunking**\n\nText is split into ~1,000 char segments with 150 char overlap.")
+        st.info("**Step 2: LangChain Chunking**\n\nText is modeled into Documents and split using `RecursiveCharacterTextSplitter`.")
 
     with step2:
         st.info("**Step 3: Embeddings**\n\nGemini `text-embedding-004` turns chunks into vectors.")

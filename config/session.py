@@ -8,7 +8,7 @@ import streamlit as st
 
 
 def get_mock_questions(count: int = 5, difficulty: str = "Medium", question_types: list[str] = None) -> list[dict]:
-    """Generate a clean set of mock questions for Phase 1 UI testing."""
+    """Generate a clean set of mock questions for Phase 1/2/3 UI testing."""
     if question_types is None:
         question_types = ["MCQ", "True/False", "Short Answer"]
 
@@ -44,7 +44,7 @@ def get_mock_questions(count: int = 5, difficulty: str = "Medium", question_type
         {
             "id": 4,
             "type": "MCQ",
-            "question": "Which Python library will be used in Phase 2 for fast, native PDF text extraction?",
+            "question": "Which Python library is used for fast, native PDF text extraction in Quiz RAG?",
             "options": [
                 "PyMuPDF (fitz)",
                 "pdf2image",
@@ -52,7 +52,7 @@ def get_mock_questions(count: int = 5, difficulty: str = "Medium", question_type
                 "Selenium"
             ],
             "correct_answer": "PyMuPDF (fitz)",
-            "explanation": "PyMuPDF provides high-speed text and page-level extraction without requiring heavy external binaries."
+            "explanation": "PyMuPDF provides high-speed text and page-level extraction without requiring external binary dependencies."
         },
         {
             "id": 5,
@@ -84,12 +84,10 @@ def get_mock_questions(count: int = 5, difficulty: str = "Medium", question_type
         }
     ]
 
-    # Filter bank by chosen question types if possible
     filtered = [q for q in bank if q["type"] in question_types]
     if not filtered:
         filtered = bank
 
-    # Repeat or slice to match requested count
     questions = []
     idx = 0
     for i in range(count):
@@ -110,30 +108,23 @@ def init_session_state() -> None:
     if "current_page" not in st.session_state:
         st.session_state.current_page = "📊 Dashboard"
 
+    # Uploaded file metadata list
     if "uploaded_files" not in st.session_state:
-        # Prepopulate with 1 mock sample note so the user can test immediately
-        st.session_state.uploaded_files = [
-            {
-                "id": "sample_note_1",
-                "name": "Lecture_01_RAG_Fundamentals.pdf",
-                "size_kb": 245.5,
-                "pages": 12,
-                "status": "Ready for Indexing (Mock)"
-            }
-        ]
+        st.session_state.uploaded_files = []
+
+    # Extracted documents dictionary: {filename: extraction_result_dict}
+    if "extracted_docs" not in st.session_state:
+        st.session_state.extracted_docs = {}
+
+    # Generated LangChain Document chunks list
+    if "chunks" not in st.session_state:
+        st.session_state.chunks = []
 
     if "generated_quizzes_count" not in st.session_state:
-        st.session_state.generated_quizzes_count = 2
+        st.session_state.generated_quizzes_count = 0
 
     if "current_quiz" not in st.session_state:
-        # Initial active mock quiz
-        st.session_state.current_quiz = {
-            "title": "RAG Concepts & Architecture Quiz",
-            "topic": "Retrieval-Augmented Generation Basics",
-            "difficulty": "Medium",
-            "total_questions": 5,
-            "questions": get_mock_questions(count=5, difficulty="Medium")
-        }
+        st.session_state.current_quiz = None
 
     if "user_answers" not in st.session_state:
         st.session_state.user_answers = {}
@@ -142,36 +133,25 @@ def init_session_state() -> None:
         st.session_state.quiz_submitted = False
 
     if "quiz_history" not in st.session_state:
-        # Prepopulate sample completed quizzes for history inspection
-        st.session_state.quiz_history = [
-            {
-                "id": "hist_1",
-                "title": "Python Data Structures Primer",
-                "topic": "Lists, Dictionaries & Tuples",
-                "difficulty": "Easy",
-                "total_questions": 5,
-                "score": "5 / 5 (100%)",
-                "date": "2026-11-02 11:30"
-            },
-            {
-                "id": "hist_2",
-                "title": "Vector Databases Overview",
-                "topic": "ChromaDB & Similarity Search",
-                "difficulty": "Medium",
-                "total_questions": 5,
-                "score": "4 / 5 (80%)",
-                "date": "2026-11-03 09:15"
-            }
-        ]
+        st.session_state.quiz_history = []
 
 
 def reset_session_data() -> None:
-    """Clear all session data (implements the 'Delete my data' action)."""
+    """Clear all session data and delete ChromaDB vector store for this session."""
+    old_session_id = st.session_state.get("session_id")
+    if old_session_id:
+        try:
+            from rag.vector_store import delete_session_vector_store
+            delete_session_vector_store(old_session_id)
+        except Exception:
+            pass
+
     st.session_state.uploaded_files = []
+    st.session_state.extracted_docs = {}
+    st.session_state.chunks = []
     st.session_state.current_quiz = None
     st.session_state.user_answers = {}
     st.session_state.quiz_submitted = False
     st.session_state.generated_quizzes_count = 0
     st.session_state.quiz_history = []
     st.session_state.session_id = f"session_{uuid.uuid4().hex[:8]}"
-

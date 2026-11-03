@@ -53,7 +53,7 @@ retrieval → grounded generation**.
 -   Payments, subscriptions, or admin dashboards.
 -   Multi-tenant production infrastructure.
 -   Permanent quiz history across sessions or server restarts.
--   Complex agent frameworks, LangChain, or MCP.
+-   Complex agent frameworks or MCP.
 -   OCR for scanned PDFs in the first version.
 -   Match-the-columns questions unless the core question types are
     working reliably.
@@ -74,19 +74,23 @@ them.
                                                   logic
 
   PDF extraction          PyMuPDF (`fitz`)        Extract text from PDFs
+                                                  page-by-page
 
-  Chunking                Python                  Split extracted text
-                                                  into overlapping chunks
+  Document Modeling &     LangChain               Wrap extracted text
+  Chunking                `RecursiveCharacter-    into Document objects;
+                          TextSplitter`           split into overlapping
+                                                  Document chunks
 
-  Embeddings              Gemini embedding API    Convert chunks and
-                                                  queries into vectors
+  Embeddings              Gemini embedding API    Convert Document chunks
+                          via LangChain / Google  and queries into vectors
 
-  Vector database         ChromaDB Python library Store vectors, text,
-                                                  and metadata; retrieve
+  Vector database         ChromaDB / LangChain    Store vectors, text,
+                          `Chroma` vector store   and metadata; retrieve
                                                   relevant chunks
 
-  LLM                     Gemini API via          Generate quizzes and
-                          `google-genai`          evaluate short answers
+  LLM & Generation        Gemini API via          Generate quizzes and
+                          LangChain / Google      evaluate short answers
+                          GenAI                   
 
   Configuration           `python-dotenv`         API key and settings
                           locally; Streamlit      
@@ -118,23 +122,23 @@ queries. Never compare vectors created by different embedding models.
                             |
                  User uploads PDF notes
                             |
-                     PDF extraction
+                  PDF extraction (PyMuPDF)
                             |
-                       Chunking
+                 LangChain Document Objects
                             |
-                    Embedding model
+           LangChain RecursiveCharacterTextSplitter
                             |
-                   ChromaDB collection
+                   Gemini Embeddings
+                            |
+                  ChromaDB VectorStore
                             |
               User requests quiz generation
                             |
-                  Embed retrieval query
-                            |
-                  Similarity retrieval
+                  LangChain Retriever
                             |
               Retrieved chunks + instructions
                             |
-                     Gemini LLM
+                   Gemini LLM (LangChain)
                             |
                   Structured quiz output
                             |
@@ -270,9 +274,10 @@ Ensure deletion is scoped to the current session only.
 
 ### B. Text chunking
 
--   Split extracted text into manageable chunks.
+-   Convert extracted PDF page text and metadata into LangChain Document objects.
+-   Split documents into manageable chunks using LangChain's RecursiveCharacterTextSplitter.
 -   Use configurable chunk size and overlap.
--   Preserve source metadata on every chunk.
+-   Preserve source metadata (source filename, page number) on every chunk Document.
 -   Avoid empty chunks.
 -   Avoid silently dropping extracted content.
 -   Show a small preview of extracted text and chunks for
@@ -406,10 +411,9 @@ image-only/scanned PDF - verify page/source metadata
 
 **Stop and wait for approval.**
 
-### Phase 3 --- Chunking
+### Phase 3 --- Chunking (LangChain RecursiveCharacterTextSplitter)
 
-Build: - chunking function - configurable chunk size and overlap -
-metadata propagation - chunk preview
+Build: - LangChain Document modeling from extracted PDF pages - LangChain RecursiveCharacterTextSplitter - configurable chunk size and overlap - metadata propagation - chunk preview
 
 Developer checks: - inspect several chunks manually - verify overlap
 works - verify no empty chunks - verify source filename/page metadata is
@@ -417,11 +421,9 @@ retained - verify short documents are handled correctly
 
 **Stop and wait for approval.**
 
-### Phase 4 --- Embeddings and ChromaDB
+### Phase 4 --- Embeddings and ChromaDB (LangChain VectorStore)
 
-Build: - embedding client - ChromaDB initialization - add/upsert chunk
-records - query embedding - top-K retrieval - session isolation and
-deletion
+Build: - Gemini embeddings via LangChain / Google GenAI - ChromaDB vector store initialization via LangChain - add/upsert Document chunks - LangChain retriever setup - session isolation and deletion
 
 Developer checks: - ingest a small PDF - confirm collection contains
 expected records - run a retrieval query - inspect returned text and
@@ -431,11 +433,9 @@ delete action removes only the current session's data
 
 **Stop and wait for approval.**
 
-### Phase 5 --- Gemini quiz generation
+### Phase 5 --- Gemini quiz generation (LangChain Chains)
 
-Build: - Gemini client - prompt template - structured response schema -
-response parsing and validation - quiz generation UI integration -
-source evidence per question
+Build: - Gemini LLM setup via LangChain - prompt template with strict grounding - structured response parser/schema - quiz generation UI integration - source evidence per question
 
 Developer checks: - generate MCQ questions from a known PDF - generate
 True/False questions - generate short-answer questions - verify answers
@@ -649,8 +649,8 @@ as the project specification and implementation plan.
     an appropriate temporary session-scoped approach for the hosted
     demo.
 -   Keep secrets out of source control.
--   Do not introduce authentication, SQL databases, React, Node.js,
-    LangChain, or MCP in V1.
+-   Use LangChain for RAG components (Documents, RecursiveCharacterTextSplitter, Chroma vector store, and Gemini generation chains).
+-   Do not introduce authentication, SQL databases, React, Node.js, or MCP in V1.
 
 ### Immediate task
 

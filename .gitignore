@@ -13,7 +13,7 @@ __pycache__/
 # Environment variables & secrets
 .env
 .streamlit/secrets.toml
-.env.e
+.env.example
 
 # ChromaDB local storage & runtime data
 storage/chroma_db/
